@@ -25,6 +25,10 @@ pub struct SettingsConfig {
   pub startup_configs: Vec<PathBuf>,
 }
 
+fn yes() -> bool {
+  true
+}
+
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct WidgetConfig {
@@ -40,6 +44,11 @@ pub struct WidgetConfig {
 
   /// Whether the Tauri window should be shown in the taskbar.
   pub shown_in_taskbar: bool,
+
+  /// Whether the Tauri window should allocate appbar space like the
+  /// taskbar.
+  #[serde(default = "yes")]
+  pub app_bar: bool,
 
   /// Whether the Tauri window should be focused when opened.
   pub focused: bool,

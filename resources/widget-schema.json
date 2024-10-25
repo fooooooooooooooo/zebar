@@ -13,6 +13,9 @@
     "shownInTaskbar": {
       "type": "boolean"
     },
+    "appBar": {
+      "type": "boolean"
+    },
     "focused": {
       "type": "boolean"
     },

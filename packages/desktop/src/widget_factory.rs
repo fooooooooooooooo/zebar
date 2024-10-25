@@ -74,6 +74,13 @@ pub struct WidgetState {
   pub html_path: PathBuf,
 }
 
+pub enum WidgetEdge {
+  Left,
+  Top,
+  Right,
+  Bottom,
+}
+
 impl WidgetFactory {
   /// Creates a new `WidgetFactory` instance.
   pub fn new(
@@ -108,7 +115,7 @@ impl WidgetFactory {
       html_path,
     } = &config_entry;
 
-    for (size, position) in self.widget_placements(config).await {
+    for (size, position, side) in self.widget_placements(config).await {
       // Use running widget count as a unique label for the Tauri window.
       let new_count =
         self.widget_count.fetch_add(1, Ordering::Relaxed) + 1;
@@ -175,10 +182,15 @@ impl WidgetFactory {
       // On Windows, Tauri's `skip_taskbar` option isn't 100% reliable, so
       // we also set the window as a tool window.
       #[cfg(target_os = "windows")]
-      let _ = window
-        .as_ref()
-        .window()
-        .set_tool_window(!config.shown_in_taskbar);
+      {
+        let window = window.as_ref().window();
+
+        let _ = window.set_tool_window(!config.shown_in_taskbar);
+
+        if config.app_bar {
+          let _ = window.allocate_app_bar(size, position, side);
+        }
+      }
 
       let mut widget_states = self.widget_states.lock().await;
       widget_states.insert(state.id.clone(), state.clone());
@@ -234,7 +246,7 @@ impl WidgetFactory {
   async fn widget_placements(
     &self,
     config: &WidgetConfig,
-  ) -> Vec<(PhysicalSize<i32>, PhysicalPosition<i32>)> {
+  ) -> Vec<(PhysicalSize<i32>, PhysicalPosition<i32>, WidgetEdge)> {
     let mut placements = vec![];
 
     for placement in config.default_placements.iter() {
@@ -295,6 +307,19 @@ impl WidgetFactory {
           ),
         };
 
+        let side = match placement.anchor {
+          AnchorPoint::TopCenter => WidgetEdge::Top,
+          AnchorPoint::BottomCenter => WidgetEdge::Bottom,
+          AnchorPoint::CenterLeft => WidgetEdge::Left,
+          AnchorPoint::CenterRight => WidgetEdge::Right,
+
+          AnchorPoint::TopLeft => WidgetEdge::Top,
+          AnchorPoint::TopRight => WidgetEdge::Top,
+          AnchorPoint::Center => WidgetEdge::Top,
+          AnchorPoint::BottomLeft => WidgetEdge::Bottom,
+          AnchorPoint::BottomRight => WidgetEdge::Bottom,
+        };
+
         let offset_x = placement
           .offset_x
           .to_px_scaled(monitor_width, monitor.scale_factor);
@@ -306,7 +331,7 @@ impl WidgetFactory {
         let window_position =
           PhysicalPosition::new(anchor_x + offset_x, anchor_y + offset_y);
 
-        placements.push((window_size, window_position));
+        placements.push((window_size, window_position, side));
       }
     }
 
@@ -319,6 +344,9 @@ impl WidgetFactory {
       .app_handle
       .get_webview_window(widget_id)
       .context("No Tauri window found for the given widget ID.")?;
+
+    #[cfg(target_os = "windows")]
+    let _ = window.as_ref().window().deallocate_app_bar();
 
     window.close()?;
 

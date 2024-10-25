@@ -1,3 +1,5 @@
+#[cfg(target_os = "windows")]
+mod app_bar;
 mod format_bytes;
 mod fs_util;
 mod length_value;
